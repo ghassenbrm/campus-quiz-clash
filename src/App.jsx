@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Routes, Route, useLocation, Link } from 'react-router-dom';
 import { Helmet } from "react-helmet-async";
-import { FaBars, FaTimes, FaHome, FaTrophy, FaUser, FaSignInAlt, FaBook, FaBell, FaUserShield } from 'react-icons/fa';
+import { FaBars, FaTimes, FaHome, FaTrophy, FaUser, FaSignInAlt, FaBook, FaBookOpen, FaBell, FaUserShield } from 'react-icons/fa';
 import { auth, db } from './firebase';
 import { doc, getDoc, collection, getDocs } from 'firebase/firestore';
 import Home from './pages/Home';
@@ -99,6 +99,7 @@ function ResponsiveNav() {
         >
           <NavLink to="/" icon={<FaHome />} text="Home" />
           <NavLink to="/quiz" icon={<FaBook />} text="Quiz" />
+          <NavLink to="/practice" icon={<FaBookOpen />} text="Practice" />
           <NavLink to="/leaderboard" icon={<FaTrophy />} text="Leaderboard" />
           <NavLink to="/profile" icon={<FaUser />} text="Profile" />
           <div className="nav-actions">
@@ -120,7 +121,7 @@ function ResponsiveNav() {
             <NavLink 
               to="/login" 
               icon={<FaSignInAlt />} 
-              text="Login" 
+              text="Signout" 
               className="nav-login-button"
             />
           </div>
