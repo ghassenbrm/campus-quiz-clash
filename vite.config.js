@@ -5,6 +5,7 @@ import { VitePWA } from 'vite-plugin-pwa';
 
 // https://vite.dev/config/
 export default defineConfig(({ mode }) => ({
+  base: '/',
   plugins: [
     react(),
     mode === 'analyze' && visualizer({
@@ -39,6 +40,10 @@ export default defineConfig(({ mode }) => ({
   build: {
     sourcemap: mode === 'development',
     minify: 'terser',
+    outDir: 'dist',
+    assetsDir: 'assets',
+    emptyOutDir: true,
+    chunkSizeWarningLimit: 1000,
     terserOptions: {
       compress: {
         drop_console: mode !== 'development',

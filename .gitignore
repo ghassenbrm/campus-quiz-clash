@@ -55,3 +55,6 @@ yarn-error.log*
 *.sw?
 
 .vercel
+
+# Local Netlify folder
+.netlify

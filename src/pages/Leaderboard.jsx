@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from "react";
 import { db, auth } from "../firebase";
 import { collection, getDocs, query, orderBy, limit, where } from "firebase/firestore";
-
 import { doc, getDoc } from "firebase/firestore";
+import { FaTrophy, FaMedal, FaCrown, FaUniversity, FaUsers, FaUserAlt, FaInfoCircle } from "react-icons/fa";
+import "../styles/leaderboard.css";
 
 export default function Leaderboard() {
   const [tab, setTab] = useState('personal');
@@ -95,118 +96,301 @@ export default function Leaderboard() {
     fetchAll();
   }, []);
 
-  if (loading) return <div style={{margin: 40}}>Chargement du classement...</div>;
-  if (error) return <div style={{margin: 40, color: '#c00'}}>Erreur : {error}</div>;
+  if (loading) return <div className="loading-state">Chargement du classement...</div>;
+  if (error) return <div className="error-state">Erreur : {error}</div>;
+
+  const renderRankBadge = (index) => {
+    if (index === 0) return <span className="rank-1"><FaCrown /></span>;
+    if (index === 1) return <span className="rank-2">2</span>;
+    if (index === 2) return <span className="rank-3">3</span>;
+    return <span className="rank-number">{index + 1}</span>;
+  };
 
   return (
-    <div style={{margin: 40, maxWidth: 900}}>
+    <div className="leaderboard-container">
       {mvp && (
-        <div style={{background: '#fffbe6', border: '2px solid #ffe066', borderRadius: 12, padding: 20, marginBottom: 28, display: 'flex', alignItems: 'center', boxShadow: '0 2px 8px #0001'}}>
-          <img src={mvp.avatar || `https://api.dicebear.com/7.x/identicon/svg?seed=${mvp.email || 'user'}`} alt="avatar" style={{width: 70, height: 70, borderRadius: '50%', border: '3px solid gold', marginRight: 24}} />
-          <div>
-            <div style={{fontSize: 22, fontWeight: 700, color: '#b8860b'}}>🏅 MVP de la semaine</div>
-            <div style={{fontSize: 18}}><b>{mvp.email}</b></div>
-            <div style={{fontSize: 15}}>Université : {mvp.university} | Classe : {mvp.classroom}</div>
-            <div style={{fontSize: 15}}>Score hebdo : <b>{mvp.totalScore}</b> | Semaine : {mvp.weekStart} → {mvp.weekEnd}</div>
+        <div className="mvp-banner">
+          <img 
+            src={mvp.avatar || `https://api.dicebear.com/7.x/identicon/svg?seed=${mvp.email || 'user'}`} 
+            alt="MVP" 
+            className="mvp-avatar" 
+          />
+          <div className="mvp-content">
+            <h2><FaTrophy /> MVP de la semaine</h2>
+            <p style={{ fontSize: '1.1rem', margin: '0.5rem 0', fontWeight: 600 }}>{mvp.email}</p>
+            <div className="mvp-details">
+              <p className="mvp-detail"><span>Université :</span> {mvp.university || 'Non spécifiée'}</p>
+              <p className="mvp-detail"><span>Classe :</span> {mvp.classroom || 'Non spécifiée'}</p>
+              <p className="mvp-detail"><span>Score :</span> {mvp.totalScore || 0} points</p>
+              <p className="mvp-detail"><span>Période :</span> {mvp.weekStart} → {mvp.weekEnd}</p>
+            </div>
           </div>
         </div>
       )}
-      <h1 style={{color: '#2d1e6b'}}>🏆 Classements</h1>
-      <div style={{display: 'flex', gap: 16, marginBottom: 24}}>
-        <button onClick={() => setTab('personal')} style={{padding: 8, background: tab==='personal' ? '#2d1e6b' : '#eee', color: tab==='personal' ? '#fff' : '#222', border: 'none', borderRadius: 6, fontWeight: 600}}>Individuel</button>
-        <button onClick={() => setTab('classroom')} style={{padding: 8, background: tab==='classroom' ? '#2d1e6b' : '#eee', color: tab==='classroom' ? '#fff' : '#222', border: 'none', borderRadius: 6, fontWeight: 600}}>Classe</button>
-        <button onClick={() => setTab('university')} style={{padding: 8, background: tab==='university' ? '#2d1e6b' : '#eee', color: tab==='university' ? '#fff' : '#222', border: 'none', borderRadius: 6, fontWeight: 600}}>Université</button>
+      
+      <h1 style={{ color: '#2d3748', marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+        <FaTrophy style={{ color: '#f6ad55' }} /> Classements
+      </h1>
+      
+      <div className="tabs-container">
+        <button 
+          onClick={() => setTab('personal')} 
+          className={`tab-button ${tab === 'personal' ? 'active' : ''}`}
+        >
+          <FaUserAlt style={{ marginRight: '8px' }} /> Individuel
+        </button>
+        <button 
+          onClick={() => setTab('classroom')} 
+          className={`tab-button ${tab === 'classroom' ? 'active' : ''}`}
+        >
+          <FaUsers style={{ marginRight: '8px' }} /> Classe
+        </button>
+        <button 
+          onClick={() => setTab('university')} 
+          className={`tab-button ${tab === 'university' ? 'active' : ''}`}
+        >
+          <FaUniversity style={{ marginRight: '8px' }} /> Université
+        </button>
       </div>
       {tab === 'personal' && (
         <>
-          <h2 style={{margin: '20px 0 10px'}}>Top 10 Joueurs du jour</h2>
-          <table style={{width: '100%', borderCollapse: 'collapse', marginTop: 8, background: '#f7f7ff', borderRadius: 12, boxShadow: '0 2px 12px #0001', overflow: 'hidden'}}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+            <h2 style={{ margin: 0 }}>Top 10 Joueurs du jour</h2>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#718096', fontSize: '0.9rem' }}>
+              <FaInfoCircle /> 
+              <span>Mis à jour en temps réel</span>
+            </div>
+          </div>
+          
+          <table className="leaderboard-table">
             <thead>
-              <tr style={{background: '#e5e9fa'}}>
-                <th style={{padding: 8}}>#</th>
-                <th style={{padding: 8}}>Avatar</th>
-                <th style={{padding: 8}}>Email</th>
-                <th style={{padding: 8}}>Score</th>
-                <th style={{padding: 8}}>Université</th>
-                <th style={{padding: 8}}>Classe</th>
+              <tr>
+                <th>#</th>
+                <th>Joueur</th>
+                <th>Score</th>
+                <th>Université</th>
+                <th>Classe</th>
               </tr>
             </thead>
             <tbody>
               {personal.map((s, i) => (
-                <tr key={i} style={{background: i % 2 === 0 ? '#fff' : '#f9f9f9'}}>
-                  <td style={{padding: 8, textAlign: 'center'}}>{i + 1}</td>
-                  <td style={{padding: 8, textAlign: 'center'}}>
-                    <img src={s.avatar || `https://api.dicebear.com/7.x/identicon/svg?seed=${s.email || 'user'}`} alt="avatar" style={{width: 40, height: 40, borderRadius: '50%', border: '2px solid #aaf'}} />
+                <tr key={i} className={i < 3 ? 'top-three' : ''}>
+                  <td>
+                    {i === 0 ? (
+                      <span className="rank-1"><FaCrown /></span>
+                    ) : i === 1 ? (
+                      <span className="rank-2">2</span>
+                    ) : i === 2 ? (
+                      <span className="rank-3">3</span>
+                    ) : (
+                      <span className="rank-number">{i + 1}</span>
+                    )}
                   </td>
-                  <td style={{padding: 8}}>{s.email}</td>
-                  <td style={{padding: 8, textAlign: 'center'}}><b>{s.score}</b></td>
-                  <td style={{padding: 8}}>{s.university}</td>
-                  <td style={{padding: 8}}>{s.classroom}</td>
+                  <td>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                      <img 
+                        src={s.avatar || `https://api.dicebear.com/7.x/identicon/svg?seed=${s.email || 'user'}`} 
+                        alt={s.email} 
+                        className="avatar"
+                        onError={(e) => {
+                          e.target.onerror = null;
+                          e.target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(s.email || 'U')}&background=4a6cf7&color=fff`;
+                        }}
+                      />
+                      <span>{s.email}</span>
+                    </div>
+                  </td>
+                  <td><strong>{s.score || 0}</strong> pts</td>
+                  <td>{s.university || '-'}</td>
+                  <td>{s.classroom || '-'}</td>
                 </tr>
               ))}
             </tbody>
           </table>
+          
           {userRank && userRank > 10 && userProfile && (
-            <div style={{marginTop: 24, background: '#eef', padding: 16, borderRadius: 8}}>
-              <b>Votre rang :</b> #{userRank} | Score : {userProfile.score} | Classe : {userProfile.classroom} | Université : {userProfile.university}
+            <div className="user-rank">
+              <div className="user-rank-content">
+                <div>
+                  <h3 className="user-rank-title">
+                    <FaUserAlt /> Votre classement
+                  </h3>
+                  <ul className="user-rank-stats">
+                    <li className="user-rank-stat">
+                      <span className="user-rank-stat-label">
+                        <FaMedal /> Position :
+                      </span>
+                      <span className="user-rank-stat-value">#{userRank}</span>
+                    </li>
+                    <li className="user-rank-stat">
+                      <span className="user-rank-stat-label">
+                        <FaStar /> Score :
+                      </span>
+                      <span className="user-rank-stat-value">{userProfile.score || 0} points</span>
+                    </li>
+                    <li className="user-rank-stat">
+                      <span className="user-rank-stat-label">
+                        <FaUsers /> Classe :
+                      </span>
+                      <span className="user-rank-stat-value">{userProfile.classroom || 'Non spécifiée'}</span>
+                    </li>
+                    <li className="user-rank-stat">
+                      <span className="user-rank-stat-label">
+                        <FaUniversity /> Université :
+                      </span>
+                      <span className="user-rank-stat-value">{userProfile.university || 'Non spécifiée'}</span>
+                    </li>
+                  </ul>
+                </div>
+                <div className="user-rank-actions">
+                  <button 
+                    className="user-rank-button"
+                    onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+                  >
+                    <FaTrophy /> Voir le classement
+                  </button>
+                  <button 
+                    className="user-rank-button secondary"
+                    onClick={() => setTab('personal')}
+                  >
+                    <FaChartLine /> Voir ma progression
+                  </button>
+                </div>
+              </div>
             </div>
           )}
         </>
       )}
       {tab === 'classroom' && (
         <>
-          <h2 style={{margin: '20px 0 10px'}}>Top 10 Classes du jour (somme des 5 meilleurs scores)</h2>
-          <table style={{width: '100%', borderCollapse: 'collapse', marginTop: 8, background: '#f7f7ff', borderRadius: 12, boxShadow: '0 2px 12px #0001', overflow: 'hidden'}}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+            <h2 style={{ margin: 0 }}>Top 10 Classes du jour</h2>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#718096', fontSize: '0.9rem' }}>
+              <FaInfoCircle /> 
+              <span>Basé sur la somme des 5 meilleurs scores</span>
+            </div>
+          </div>
+          
+          <table className="leaderboard-table">
             <thead>
-              <tr style={{background: '#e5e9fa'}}>
-                <th style={{padding: 8}}>#</th>
-                <th style={{padding: 8}}>Classe</th>
-                <th style={{padding: 8}}>Université</th>
-                <th style={{padding: 8}}>Score (top 5)</th>
+              <tr>
+                <th>#</th>
+                <th>Classe</th>
+                <th>Université</th>
+                <th>Score</th>
+                <th>Membres</th>
               </tr>
             </thead>
             <tbody>
               {classrooms.map((c, i) => (
-                <tr key={i} style={{background: i % 2 === 0 ? '#fff' : '#f9f9f9'}}>
-                  <td style={{padding: 8, textAlign: 'center'}}>{i + 1}</td>
-                  <td style={{padding: 8}}>{c.classroom}</td>
-                  <td style={{padding: 8}}>{c.university}</td>
-                  <td style={{padding: 8, textAlign: 'center'}}>{c.total}</td>
+                <tr key={i}>
+                  <td>{renderRankBadge(i)}</td>
+                  <td><strong>{c.classroom || 'Non spécifiée'}</strong></td>
+                  <td>{c.university || 'Non spécifiée'}</td>
+                  <td><strong>{c.total || 0}</strong> pts</td>
+                  <td>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                      {c.members.slice(0, 3).map((m, idx) => (
+                        <img 
+                          key={idx}
+                          src={m.avatar || `https://api.dicebear.com/7.x/identicon/svg?seed=${m.email || 'user'}`}
+                          alt={m.email}
+                          style={{
+                            width: '24px',
+                            height: '24px',
+                            borderRadius: '50%',
+                            border: '1px solid #e2e8f0'
+                          }}
+                          title={m.email}
+                        />
+                      ))}
+                      {c.members.length > 3 && (
+                        <span style={{ marginLeft: '4px' }}>+{c.members.length - 3}</span>
+                      )}
+                    </div>
+                  </td>
                 </tr>
               ))}
             </tbody>
           </table>
+          
           {classRank && classRank > 10 && userProfile && (
-            <div style={{marginTop: 24, background: '#eef', padding: 16, borderRadius: 8}}>
-              <b>Votre classe :</b> {userProfile.classroom} | Rang : #{classRank}
+            <div className="user-rank">
+              <p>
+                <strong>Votre classe :</strong> {userProfile.classroom || 'Non spécifiée'} | 
+                <strong>Rang :</strong> #{classRank}
+              </p>
             </div>
           )}
         </>
       )}
       {tab === 'university' && (
         <>
-          <h2 style={{margin: '20px 0 10px'}}>Top 10 Universités du jour (somme des 3 meilleures classes)</h2>
-          <table style={{width: '100%', borderCollapse: 'collapse', marginTop: 8, background: '#f7f7ff', borderRadius: 12, boxShadow: '0 2px 12px #0001', overflow: 'hidden'}}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+            <h2 style={{ margin: 0 }}>Top 10 Universités du jour</h2>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#718096', fontSize: '0.9rem' }}>
+              <FaInfoCircle /> 
+              <span>Basé sur la somme des 3 meilleures classes</span>
+            </div>
+          </div>
+          
+          <table className="leaderboard-table">
             <thead>
-              <tr style={{background: '#e5e9fa'}}>
-                <th style={{padding: 8}}>#</th>
-                <th style={{padding: 8}}>Université</th>
-                <th style={{padding: 8}}>Score (top 3 classes)</th>
+              <tr>
+                <th>#</th>
+                <th>Université</th>
+                <th>Score</th>
+                <th>Meilleure classe</th>
               </tr>
             </thead>
             <tbody>
-              {universities.map((u, i) => (
-                <tr key={i} style={{background: i % 2 === 0 ? '#fff' : '#f9f9f9'}}>
-                  <td style={{padding: 8, textAlign: 'center'}}>{i + 1}</td>
-                  <td style={{padding: 8}}>{u.university}</td>
-                  <td style={{padding: 8, textAlign: 'center'}}>{u.total}</td>
-                </tr>
-              ))}
+              {universities.map((u, i) => {
+                const topClass = u.classrooms && u.classrooms[0];
+                return (
+                  <tr key={i}>
+                    <td>{renderRankBadge(i)}</td>
+                    <td>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                        <div style={{
+                          width: '32px',
+                          height: '32px',
+                          borderRadius: '8px',
+                          background: 'linear-gradient(135deg, #4a6cf7, #6c5ce7)',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          color: 'white',
+                          fontWeight: 'bold',
+                          fontSize: '0.9rem'
+                        }}>
+                          {u.university ? u.university.charAt(0).toUpperCase() : 'U'}
+                        </div>
+                        <span>{u.university || 'Non spécifiée'}</span>
+                      </div>
+                    </td>
+                    <td><strong>{u.total || 0}</strong> pts</td>
+                    <td>
+                      {topClass ? (
+                        <div>
+                          <div>{topClass.classroom || 'Classe inconnue'}</div>
+                          <div style={{ fontSize: '0.85em', color: '#718096' }}>{topClass.total} points</div>
+                        </div>
+                      ) : (
+                        '-'
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
+          
           {uniRank && uniRank > 10 && userProfile && (
-            <div style={{marginTop: 24, background: '#eef', padding: 16, borderRadius: 8}}>
-              <b>Votre université :</b> {userProfile.university} | Rang : #{uniRank}
+            <div className="user-rank">
+              <p>
+                <strong>Votre université :</strong> {userProfile.university || 'Non spécifiée'} | 
+                <strong>Rang :</strong> #{uniRank}
+              </p>
             </div>
           )}
         </>

@@ -1,6 +1,9 @@
 import React, { useEffect, useState } from "react";
 import { auth, db } from "../firebase";
 import { doc, getDoc } from "firebase/firestore";
+import { FaUserGraduate, FaUniversity, FaChalkboardTeacher, FaTrophy, FaChartLine, FaCheckCircle, FaAward, FaStar } from "react-icons/fa";
+import { MdEmail, MdSchool, MdEmojiEvents, MdTimeline } from "react-icons/md";
+import "./../styles/profile.css";
 
 export default function Profile() {
   const [profile, setProfile] = useState(null);
@@ -35,33 +38,144 @@ export default function Profile() {
   const unlockedAvatars = profile?.unlockedAvatars || [];
 
   return (
-    <div style={{margin: 40, maxWidth: 500}}>
-      <h1>Profil Joueur</h1>
-      <div style={{background: '#f7f7ff', borderRadius: 16, boxShadow: '0 2px 12px #0001', padding: 32, margin: '32px 0 24px 0'}}>
-        <div style={{fontSize: 18, marginBottom: 16}}>
-          <div><b>Email :</b> {profile?.email || (auth.currentUser && auth.currentUser.email)}</div>
-          <div><b>Universit :</b> {profile?.university}</div>
-          <div><b>Classe :</b> {profile?.classroom}</div>
+    <div className="profile-container">
+      {/* Profile Header */}
+      <div className="profile-header">
+        <img 
+          src={`https://api.dicebear.com/7.x/identicon/svg?seed=${profile?.email || 'user'}`} 
+          alt="Profile" 
+          className="profile-avatar"
+        />
+        <h1 className="profile-name">
+          {profile?.displayName || 'Joueur'}
+        </h1>
+        <div className="profile-email">
+          {profile?.email || (auth.currentUser && auth.currentUser.email)}
         </div>
-        <div style={{fontSize: 16, marginBottom: 12}}>
-          <div><b>Total questions répondues :</b> {profile?.totalAnswered || 0}</div>
-          <div><b>Bonnes réponses :</b> {profile?.totalCorrect || 0}</div>
-          <div><b>Précision :</b> {accuracy}%</div>
-          <div><b>Série actuelle :</b> {streak} jour(s)</div>
-          <div><b>Meilleure série :</b> {bestStreak} jour(s)</div>
+      </div>
+
+      {/* Stats Cards */}
+      <div className="profile-stats">
+        <div className="stat-card">
+          <div className="stat-value">{profile?.totalAnswered || 0}</div>
+          <div className="stat-label">Questions répondues</div>
         </div>
-        <div style={{marginTop: 16}}>
-          <b>Avatars débloqués (streaks) :</b>
-          <div style={{display: 'flex', gap: 12, marginTop: 8}}>
-            {unlockedAvatars.length === 0 && <span>Aucun débloqué</span>}
-            {unlockedAvatars.map(a => (
-              <div key={a} style={{textAlign: 'center'}}>
-                <img src={`https://api.dicebear.com/7.x/identicon/svg?seed=${a}`} alt={a} style={{width: 48, height: 48, borderRadius: '50%', border: '2px solid #aaf'}} />
-                <div style={{fontSize: 12}}>{a}</div>
+        <div className="stat-card">
+          <div className="stat-value">{accuracy}%</div>
+          <div className="stat-label">Précision</div>
+        </div>
+        <div className="stat-card">
+          <div className="stat-value">{streak}</div>
+          <div className="stat-label">Série actuelle</div>
+        </div>
+        <div className="stat-card">
+          <div className="stat-value">{bestStreak}</div>
+          <div className="stat-label">Meilleure série</div>
+        </div>
+      </div>
+
+      {/* Profile Details */}
+      <div className="profile-section">
+        <h2 className="section-title">
+          <FaUserGraduate style={{ marginRight: '0.5rem' }} />
+          Informations personnelles
+        </h2>
+        <div className="profile-details">
+          <div className="detail-item">
+            <div className="detail-icon">
+              <MdEmail size={20} />
+            </div>
+            <div className="detail-content">
+              <h4>Email</h4>
+              <p>{profile?.email || (auth.currentUser && auth.currentUser.email)}</p>
+            </div>
+          </div>
+          
+          <div className="detail-item">
+            <div className="detail-icon">
+              <FaUniversity size={18} />
+            </div>
+            <div className="detail-content">
+              <h4>Université</h4>
+              <p>{profile?.university || 'Non spécifiée'}</p>
+            </div>
+          </div>
+          
+          <div className="detail-item">
+            <div className="detail-icon">
+              <FaChalkboardTeacher size={18} />
+            </div>
+            <div className="detail-content">
+              <h4>Classe</h4>
+              <p>{profile?.classroom || 'Non spécifiée'}</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Performance Section */}
+      <div className="profile-section">
+        <h2 className="section-title">
+          <FaChartLine style={{ marginRight: '0.5rem' }} />
+          Performance
+        </h2>
+        <div className="profile-details">
+          <div className="detail-item">
+            <div className="detail-icon">
+              <FaCheckCircle size={18} />
+            </div>
+            <div className="detail-content">
+              <h4>Bonnes réponses</h4>
+              <p>{profile?.totalCorrect || 0} / {profile?.totalAnswered || 0}</p>
+            </div>
+          </div>
+          
+          <div className="detail-item">
+            <div className="detail-icon">
+              <FaTrophy size={18} />
+            </div>
+            <div className="detail-content">
+              <h4>Score total</h4>
+              <p>{profile?.totalScore || 0} points</p>
+            </div>
+          </div>
+          
+          <div className="detail-item">
+            <div className="detail-icon">
+              <FaAward size={18} />
+            </div>
+            <div className="detail-content">
+              <h4>Niveau</h4>
+              <p>{(profile?.level || 1).toFixed(0)}</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Achievements Section */}
+      <div className="profile-section">
+        <h2 className="section-title">
+          <FaStar style={{ marginRight: '0.5rem' }} />
+          Avatars débloqués
+        </h2>
+        {unlockedAvatars.length === 0 ? (
+          <p style={{ textAlign: 'center', color: 'var(--text-muted)' }}>
+            Aucun avatar débloqué pour le moment. Continuez à jouer pour en débloquer !
+          </p>
+        ) : (
+          <div className="avatar-grid">
+            {unlockedAvatars.map((avatar, index) => (
+              <div key={index} className="avatar-item">
+                <img 
+                  src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${avatar}`} 
+                  alt={`Avatar ${index + 1}`} 
+                  className="avatar-img"
+                />
+                <div className="avatar-name">Niveau {index + 1}</div>
               </div>
             ))}
           </div>
-        </div>
+        )}
       </div>
     </div>
   );
