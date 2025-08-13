@@ -1,14 +1,46 @@
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { auth, db } from "../firebase";
-import { doc, getDoc } from "firebase/firestore";
+import { doc, getDoc, updateDoc } from "firebase/firestore";
 import { FaUserGraduate, FaUniversity, FaChalkboardTeacher, FaTrophy, FaChartLine, FaCheckCircle, FaAward, FaStar } from "react-icons/fa";
-import { MdEmail, MdSchool, MdEmojiEvents, MdTimeline } from "react-icons/md";
+import { MdEmail, MdSchool, MdEmojiEvents, MdTimeline, MdEdit } from "react-icons/md";
+import AvatarSelector from "../components/profile/AvatarSelector";
 import "./../styles/profile.css";
 
 export default function Profile() {
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [showAvatarSelector, setShowAvatarSelector] = useState(false);
+  const [refreshKey, setRefreshKey] = useState(0);
+  const [currentAvatar, setCurrentAvatar] = useState('00');
+
+  // Update currentAvatar when profile changes
+  useEffect(() => {
+    if (profile?.avatar) {
+      setCurrentAvatar(profile.avatar);
+    }
+  }, [profile?.avatar]);
+
+  const refreshProfile = useCallback(async () => {
+    const user = auth.currentUser;
+    if (!user) {
+      setError("Utilisateur non connecté");
+      setLoading(false);
+      return;
+    }
+    try {
+      const snap = await getDoc(doc(db, "users", user.uid));
+      const userData = snap.data();
+      setProfile(userData);
+      if (userData?.avatar) {
+        setCurrentAvatar(userData.avatar);
+      }
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
     const unsubscribe = auth.onAuthStateChanged(async (user) => {
@@ -17,35 +49,42 @@ export default function Profile() {
         setLoading(false);
         return;
       }
-      try {
-        const snap = await getDoc(doc(db, "users", user.uid));
-        setProfile(snap.data());
-      } catch (err) {
-        setError(err.message);
-      } finally {
-        setLoading(false);
-      }
+      await refreshProfile();
     });
     return () => unsubscribe();
-  }, []);
+  }, [refreshKey, refreshProfile]);
 
   if (loading) return <div style={{margin: 40}}>Chargement du profil...</div>;
   if (error) return <div style={{color: '#c00', margin: 40}}>Erreur : {error}</div>;
+  if (!profile) return <div style={{margin: 40}}>Profil non trouvé</div>;
 
-  const accuracy = profile && profile.totalAnswered ? ((profile.totalCorrect || 0) / profile.totalAnswered * 100).toFixed(1) : '0.0';
-  const streak = profile?.currentStreak || 0;
-  const bestStreak = profile?.bestStreak || 0;
-  const unlockedAvatars = profile?.unlockedAvatars || [];
+  const accuracy = profile.totalAnswered ? ((profile.totalCorrect || 0) / profile.totalAnswered * 100).toFixed(1) : '0.0';
+  const streak = profile.currentStreak || 0;
+  const bestStreak = profile.bestStreak || 0;
+  const unlockedAvatars = profile.unlockedAvatars || [];
 
   return (
     <div className="profile-container">
       {/* Profile Header */}
       <div className="profile-header">
-        <img 
-          src={`https://api.dicebear.com/7.x/identicon/svg?seed=${profile?.email || 'user'}`} 
-          alt="Profile" 
-          className="profile-avatar"
-        />
+        <div className="relative">
+          <img 
+            src={`/avatars/${currentAvatar}_final.svg`}
+            alt="Profile" 
+            className="profile-avatar"
+            onError={(e) => {
+              // Fallback to a default avatar if the requested one fails to load
+              e.target.src = '/avatars/00_final.svg';
+            }}
+          />
+          <button 
+            onClick={() => setShowAvatarSelector(!showAvatarSelector)}
+            className="absolute bottom-0 right-0 bg-blue-500 text-white p-2 rounded-full hover:bg-blue-600 transition-colors"
+            title="Changer d'avatar"
+          >
+            <MdEdit size={16} />
+          </button>
+        </div>
         <h1 className="profile-name">
           {profile?.displayName || 'Joueur'}
         </h1>
@@ -53,6 +92,25 @@ export default function Profile() {
           {profile?.email || (auth.currentUser && auth.currentUser.email)}
         </div>
       </div>
+
+      {/* Avatar Selector Modal */}
+      {showAvatarSelector && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4" onClick={() => setShowAvatarSelector(false)}>
+          <div className="bg-white rounded-lg p-6 max-w-md w-full max-h-[80vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+            <AvatarSelector 
+              currentAvatar={currentAvatar} 
+              onSelect={(newAvatar) => {
+                setCurrentAvatar(newAvatar);
+                setShowAvatarSelector(false);
+                // Refresh profile data after a short delay
+                setTimeout(() => {
+                  setRefreshKey(prev => prev + 1);
+                }, 100);
+              }}
+            />
+          </div>
+        </div>
+      )}
 
       {/* Stats Cards */}
       <div className="profile-stats">

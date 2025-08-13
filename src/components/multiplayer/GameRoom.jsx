@@ -2,9 +2,24 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { doc, onSnapshot, updateDoc, arrayUnion, arrayRemove, serverTimestamp } from 'firebase/firestore';
 import { db, auth } from '../../firebase';
-import { FaUsers, FaTrophy, FaCheckCircle, FaPlay, FaSpinner } from 'react-icons/fa';
+import { 
+  FaUsers, 
+  FaTrophy, 
+  FaCheck, 
+  FaTimes, 
+  FaClock, 
+  FaPlay, 
+  FaSpinner, 
+  FaCopy, 
+  FaCheckCircle,
+  FaGamepad,
+  FaUserFriends,
+  FaQuestion,
+  FaArrowRight
+} from 'react-icons/fa';
 import Avatar from '../common/Avatar';
 import { getQuestions } from '../../utils/questions/triviaService';
+import '../../styles/game-room.css';
 
 export default function GameRoom() {
   const { roomCode } = useParams();
@@ -18,8 +33,55 @@ export default function GameRoom() {
   const [currentQuestion, setCurrentQuestion] = useState(null);
   const [players, setPlayers] = useState([]);
   const [error, setError] = useState('');
+  const [timeLeft, setTimeLeft] = useState(20); // 20 seconds per question
+  const timerRef = useRef(null);
   
-
+  // Timer effect
+  useEffect(() => {
+    // Clear any existing timer when component unmounts or game state changes
+    return () => {
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+        timerRef.current = null;
+      }
+    };
+  }, []);
+  
+  // Reset and start timer when question changes
+  useEffect(() => {
+    if (gameState === 'question') {
+      // Reset timer
+      setTimeLeft(20);
+      
+      // Clear any existing timer
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+      }
+      
+      // Start new timer
+      timerRef.current = setInterval(() => {
+        setTimeLeft(prevTime => {
+          if (prevTime <= 1) {
+            clearInterval(timerRef.current);
+            // Time's up! Handle auto-submit or move to results
+            if (selectedAnswer === null) {
+              handleAnswerSelect(-1); // -1 indicates no answer
+            }
+            return 0;
+          }
+          return prevTime - 1;
+        });
+      }, 1000);
+      
+      // Cleanup on unmount or when question changes
+      return () => {
+        if (timerRef.current) {
+          clearInterval(timerRef.current);
+          timerRef.current = null;
+        }
+      };
+    }
+  }, [gameState, currentQuestion?.id]);
   
   // Listen for room updates
   useEffect(() => {
@@ -418,61 +480,104 @@ export default function GameRoom() {
   };
 
   const renderWaitingRoom = () => (
-    <div className="text-center">
-      <h3 className="text-2xl font-bold mb-2">Room Code: {roomCode}</h3>
-      <div className="mb-6">
-        <FaUsers size={48} className="text-[var(--primary-color)] mb-3 mx-auto" />
-        <h4 className="text-xl font-semibold">Waiting for players...</h4>
+    <div className="waiting-room">
+      <div className="game-header">
+        <div className="room-code-display" onClick={() => {
+          navigator.clipboard.writeText(roomCode);
+          alert('Room code copied to clipboard!');
+        }}>
+          <FaGamepad className="mr-2" />
+          {roomCode}
+          <FaCopy className="ml-3 opacity-70 hover:opacity-100" />
+        </div>
+        <p className="text-gray-600 mt-2">Share this code with friends to join</p>
       </div>
       
-      <div className="player-list mb-8">
-        <h5 className="text-lg font-medium mb-4">Players ({Object.keys(room?.players || {}).length}/10)</h5>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-2xl mx-auto">
+      <div className="player-list">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-xl font-semibold text-gray-800">Players</h3>
+          <div className="text-sm text-gray-500">
+            {Object.keys(room?.players || {}).length}/10 joined
+          </div>
+        </div>
+        
+        <div className="player-grid">
           {Object.entries(room?.players || {}).map(([playerId, player]) => (
             <div 
               key={playerId} 
-              className={`flex items-center p-3 rounded-lg shadow-sm border ${
-                playerId === userId ? 'border-blue-500 bg-blue-50' : 'border-gray-200 bg-white'
-              }`}
+              className={`player-card ${playerId === userId ? 'you' : ''}`}
             >
-              <div className="flex-shrink-0">
-                <Avatar 
-                  userId={playerId} 
-                  username={player.username} 
-                  size="md"
-                  className="mr-3"
-                />
+              <div className="player-avatar">
+                {player.avatar ? (
+                  <img 
+                    src={`/avatars/${player.avatar}_final.svg`} 
+                    alt={player.username || 'Player'}
+                    onError={(e) => {
+                      e.target.onerror = null;
+                      e.target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(player.username || 'P')}&background=4f46e5&color=fff`;
+                    }}
+                  />
+                ) : (
+                  <span>{(player.username || 'P').charAt(0).toUpperCase()}</span>
+                )}
               </div>
-              <div className="flex-grow text-left">
-                <div className="flex items-center">
-                  <span className="font-medium">{player.username || 'Unknown Player'}</span>
+              
+              <div className="player-info">
+                <div className="player-name">
+                  {player.username || 'Guest'}
                   {playerId === room?.hostId && (
-                    <span className="ml-2 px-2 py-0.5 text-xs font-medium bg-blue-100 text-blue-800 rounded-full">
+                    <span className="ml-2 text-xs bg-blue-100 text-blue-800 px-2 py-0.5 rounded-full">
                       Host
                     </span>
                   )}
-                  {playerId === userId && (
-                    <span className="ml-2 text-sm text-gray-500">(You)</span>
-                  )}
                 </div>
-                <div className="text-sm text-gray-500">
-                  Score: {player.score || 0}
+                <div className="player-status">
+                  <span className="flex items-center">
+                    <span className={`w-2 h-2 rounded-full mr-2 ${
+                      player.isReady ? 'bg-green-500' : 'bg-gray-300'
+                    }`}></span>
+                    {player.isReady ? 'Ready' : 'Not Ready'}
+                  </span>
                 </div>
+              </div>
+              
+              <div className="player-score">
+                {player.score || 0}
               </div>
             </div>
           ))}
         </div>
       </div>
       
-      {isHost && (
-        <button 
-          className="btn btn-success btn-lg"
-          onClick={startGame}
-          disabled={Object.keys(room?.players || {}).length < 2}
-        >
-          Start Game ({Object.keys(room?.players || {}).length}/10)
-        </button>
-      )}
+      <div className="button-group">
+        {isHost ? (
+          <button 
+            className="btn btn-primary btn-lg"
+            onClick={startGame}
+            disabled={Object.keys(room?.players || {}).length < 2}
+          >
+            <FaPlay className="mr-2" />
+            Start Game
+            <span className="ml-2 bg-white/20 px-2 py-0.5 rounded-full text-sm">
+              {Object.keys(room?.players || {}).length}/10
+            </span>
+          </button>
+        ) : (
+          <div className="text-center py-4">
+            <div className="flex items-center justify-center text-gray-600 mb-2">
+              <FaSpinner className="animate-spin mr-2" />
+              Waiting for host to start the game...
+            </div>
+            <p className="text-sm text-gray-500">
+              {Object.keys(room?.players || {}).length} player{Object.keys(room?.players || {}).length !== 1 ? 's' : ''} in the room
+            </p>
+          </div>
+        )}
+      </div>
+      
+      <div className="mt-8 text-center text-sm text-gray-500">
+        <p>Need help? Share the room code with friends to play together!</p>
+      </div>
     </div>
   );
 
@@ -481,6 +586,9 @@ export default function GameRoom() {
     
     // Handle both 'options' and 'choices' properties for backward compatibility
     const questionChoices = currentQuestion.options || currentQuestion.choices || [];
+    const currentQuestionIndex = room?.currentQuestionIndex || 0;
+    const totalQuestions = room?.questions?.length || 1;
+    const progress = ((currentQuestionIndex + 1) / totalQuestions) * 100;
     
     // Log question data for debugging
     console.log('Current question:', {
@@ -491,52 +599,132 @@ export default function GameRoom() {
     });
     
     return (
-      <div>
-        <div className="d-flex justify-content-end mb-4">
-          <div className="badge bg-secondary p-2">
-            Question {(room?.currentQuestionIndex || 0) + 1}/{room?.questions?.length || 1}
+      <div className="game-content">
+        {/* Progress Bar */}
+        <div className="progress-container mb-6">
+          <div className="progress-bar" style={{ width: `${progress}%` }}></div>
+          <div className="progress-text">
+            Question {currentQuestionIndex + 1} of {totalQuestions}
           </div>
         </div>
         
-        <div className="card mb-4">
-          <div className="card-body">
-            <h4 className="card-title">{currentQuestion.question}</h4>
-            
-            <div className="row mt-4">
-              {questionChoices.map((choice, index) => {
-                const isSelected = selectedAnswer === index;
-                const isCorrect = currentQuestion.correctAnswer === index;
-                const showResults = gameState === 'results';
-                
-                let className = 'btn btn-outline-primary btn-lg mb-3 text-start';
-                if (isSelected) {
-                  className = showResults && isCorrect 
-                    ? 'btn btn-success btn-lg mb-3 text-start'
-                    : showResults 
-                      ? 'btn btn-danger btn-lg mb-3 text-start'
-                      : 'btn btn-primary btn-lg mb-3 text-start';
-                } else if (showResults && isCorrect) {
-                  className = 'btn btn-success btn-lg mb-3 text-start';
-                }
-                
-                return (
-                  <div key={index} className="col-12 col-md-6 mb-2">
-                    <button
-                      className={className}
-                      onClick={() => handleAnswerSelect(index)}
-                      disabled={selectedAnswer !== null || gameState === 'results'}
-                    >
-                      <div className="d-flex align-items-center">
-                        {String.fromCharCode(65 + index)}) {choice}
-                        {showResults && isCorrect && (
-                          <FaCheckCircle className="ms-2" />
-                        )}
-                      </div>
-                    </button>
-                  </div>
-                );
-              })}
+        {/* Question Card */}
+        <div className="question-card bg-white rounded-xl p-6 shadow-lg border border-gray-100 relative overflow-hidden">
+          <div className="absolute top-0 left-0 bg-gradient-to-r from-blue-500 to-purple-600 w-full h-2"></div>
+          
+          <div className="flex items-center mb-4">
+            <div className="bg-blue-100 text-blue-700 font-bold rounded-full w-8 h-8 flex items-center justify-center mr-3">
+              {currentQuestionIndex + 1}
             </div>
+            <span className="text-sm font-medium text-gray-500">Question {currentQuestionIndex + 1} of {totalQuestions}</span>
+          </div>
+          
+          <h2 className="text-2xl font-bold text-gray-800 mb-6 leading-tight">
+            {currentQuestion.question}
+          </h2>
+          
+          {/* Timer */}
+          <div className="timer-container">
+            <div 
+              className="timer-bar" 
+              style={{ width: `${(timeLeft / 20) * 100}%` }}
+            ></div>
+          </div>
+          <div className="timer-text">
+            <FaClock className="inline mr-1" />
+            {timeLeft} seconds remaining
+          </div>
+          
+          {/* Answer Options */}
+          <div className="options-grid">
+            {questionChoices.map((option, index) => {
+              const isSelected = selectedAnswer === index;
+              const isCorrect = index === (currentQuestion.correctAnswer || currentQuestion.answer);
+              let optionClass = 'option-button';
+              
+              if (selectedAnswer !== null) {
+                if (isSelected) {
+                  optionClass += isCorrect ? ' correct' : ' incorrect';
+                } else if (isCorrect) {
+                  optionClass += ' correct';
+                }
+              } else if (isSelected) {
+                optionClass += ' selected';
+              }
+              
+              return (
+                <button
+                  key={index}
+                  className={optionClass}
+                  onClick={() => !selectedAnswer && handleAnswerSelect(index)}
+                  disabled={selectedAnswer !== null}
+                >
+                  <span className="option-letter">
+                    {String.fromCharCode(65 + index)}
+                  </span>
+                  <span className="option-text">{option}</span>
+                  
+                  {selectedAnswer !== null && (
+                    <span className="absolute right-4">
+                      {isCorrect ? (
+                        <FaCheck className="text-green-500" />
+                      ) : isSelected ? (
+                        <FaTimes className="text-red-500" />
+                      ) : null}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+        
+        {/* Player Status */}
+        <div className="player-status-container mt-6">
+          <h3 className="text-lg font-semibold mb-3">Players</h3>
+          <div className="player-grid">
+            {players.map((player) => (
+              <div key={player.id} className="player-card">
+                <div className="player-avatar">
+                  {player.avatar ? (
+                    <img 
+                      src={`/avatars/${player.avatar}_final.svg`} 
+                      alt={player.username || 'Player'}
+                      onError={(e) => {
+                        e.target.onerror = null;
+                        e.target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(player.username || 'P')}&background=4f46e5&color=fff`;
+                      }}
+                    />
+                  ) : (
+                    <span>{(player.username || 'P').charAt(0).toUpperCase()}</span>
+                  )}
+                </div>
+                
+                <div className="player-info">
+                  <div className="player-name">
+                    {player.username || 'Guest'}
+                    {player.id === userId && ' (You)'}
+                  </div>
+                  <div className="player-status">
+                    {player.answer === null || player.answer === undefined ? (
+                      <span className="text-yellow-600">
+                        <FaClock className="inline mr-1" />
+                        Thinking...
+                      </span>
+                    ) : (
+                      <span className="text-green-600">
+                        <FaCheck className="inline mr-1" />
+                        Answered
+                      </span>
+                    )}
+                  </div>
+                </div>
+                
+                <div className="player-score">
+                  {player.score || 0}
+                </div>
+              </div>
+            ))}
           </div>
         </div>
         
@@ -618,9 +806,7 @@ export default function GameRoom() {
                     }`}>
                       {player.answer === undefined || player.answer === null
                         ? 'No answer'
-                        : player.isCorrect
-                          ? '✓ Correct'
-                          : '✗ Incorrect'}
+                        : player.isCorrect ? '✓ Correct' : '✗ Incorrect'}
                     </span>
                   </div>
                   
@@ -637,76 +823,154 @@ export default function GameRoom() {
                     )}
                   </div>
                 </div>
-              </div>
-            </div>
-          ))}
-        </div>
-        
-        {allPlayersAnswered && isHost && (
-          <div className="text-center mt-4">
-            <button 
-              onClick={moveToNextQuestion}
-              className="btn btn-primary btn-lg"
-            >
-              Next Question
-            </button>
-          </div>
-        )}
-        
-        {allPlayersAnswered && !isHost && (
-          <div className="alert alert-info text-center">
-            Waiting for host to start the next question...
-          </div>
-        )}
-      </div>
-    );
-  };
-
-  const renderLeaderboard = () => (
-    <div>
-      <h3 className="text-center mb-4">
-        <FaTrophy className="text-warning" /> Game Over
-      </h3>
-      
-      <div className="leaderboard">
-        {players
-          .sort((a, b) => (b.score || 0) - (a.score || 0))
-          .map((player, index) => (
-            <div key={player.id} className="card mb-3">
-              <div className="card-body">
-                <div className="d-flex justify-content-between align-items-center">
-                  <div>
-                    <h5 className="mb-0">
-                      #{index + 1} {player.username}
-                      {player.id === userId && ' (You)'}
-                    </h5>
-                    {player.id === room?.hostId && (
-                      <span className="badge bg-primary">Host</span>
-                    )}
-                  </div>
-                  <div className="h4 mb-0">{player.score || 0} pts</div>
+                
+                <div className="player-score">
+                  {player.score || 0}
                 </div>
               </div>
             </div>
           ))}
+          
+          {allPlayersAnswered && isHost && (
+            <div className="text-center mt-4">
+              <button 
+                onClick={moveToNextQuestion}
+                className="btn btn-primary btn-lg"
+              >
+                {room?.currentQuestionIndex < (room?.questions?.length || 0) - 1 ? 'Next Question' : 'Show Results'}
+                <FaArrowRight className="ml-2" />
+              </button>
+            </div>
+          )}
+          
+          {allPlayersAnswered && !isHost && (
+            <div className="alert alert-info text-center mt-4">
+              Waiting for host to start the next question...
+            </div>
+          )}
+        </div>
       </div>
-      
-      <div className="text-center mt-4">
-        <button 
-          className="btn btn-primary me-2"
-          onClick={() => window.location.reload()}
-        >
-          Play Again
-        </button>
-        <button 
-          className="btn btn-outline-secondary"
-          onClick={() => navigate('/')}
-        >
-          Back to Home
-        </button>
+    );
+  };
+
+  const renderLeaderboard = () => {
+    const sortedPlayers = [...players].sort((a, b) => (b.score || 0) - (a.score || 0));
+    const currentPlayer = players.find(p => p.id === userId);
+    const currentPlayerRank = sortedPlayers.findIndex(p => p.id === userId) + 1;
+    const totalPlayers = sortedPlayers.length;
+    
+    return (
+      <div className="leaderboard-container">
+        <div className="text-center mb-8">
+          <div className="flex items-center justify-center mb-2">
+            <FaTrophy className="text-yellow-500 text-4xl mr-3" />
+            <h2 className="text-3xl font-bold text-gray-800">Game Over!</h2>
+          </div>
+          
+          {currentPlayer && (
+            <div className="bg-white rounded-xl shadow-md p-6 max-w-md mx-auto mb-8">
+              <div className="text-sm text-gray-500 mb-2">Your Rank</div>
+              <div className="text-5xl font-bold text-blue-600 mb-2">
+                #{currentPlayerRank}
+                <span className="text-gray-400 text-2xl">/{totalPlayers}</span>
+              </div>
+              <div className="text-2xl font-semibold mb-4">{currentPlayer.username}</div>
+              
+              <div className="flex justify-between border-t border-gray-100 pt-4">
+                <div className="text-center">
+                  <div className="text-2xl font-bold">{currentPlayer.score || 0}</div>
+                  <div className="text-sm text-gray-500">Total Points</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-2xl font-bold">
+                    {Math.round((players.filter(p => p.score < (currentPlayer.score || 0)).length / totalPlayers) * 100)}%
+                  </div>
+                  <div className="text-sm text-gray-500">Better Than</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-2xl font-bold">
+                    {players.filter(p => p.isCorrect).length}
+                  </div>
+                  <div className="text-sm text-gray-500">Correct Answers</div>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+        
+        <div className="leaderboard">
+          <div className="leaderboard-header">
+            <h3 className="text-xl font-semibold">Final Standings</h3>
+            <div className="text-sm text-gray-500">
+              {sortedPlayers.length} Player{sortedPlayers.length !== 1 ? 's' : ''}
+            </div>
+          </div>
+          
+          <div className="leaderboard-list">
+            {sortedPlayers.map((player, index) => (
+              <div 
+                key={player.id} 
+                className={`leaderboard-item ${player.id === userId ? 'you' : ''}`}
+              >
+                <div className="leaderboard-position">
+                  {index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : `#${index + 1}`}
+                </div>
+                
+                <div className="leaderboard-avatar">
+                  {player.avatar ? (
+                    <img 
+                      src={`/avatars/${player.avatar}_final.svg`}
+                      alt={player.username || 'Player'}
+                      onError={(e) => {
+                        e.target.onerror = null;
+                        e.target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(player.username || 'P')}&background=4f46e5&color=fff`;
+                      }}
+                    />
+                  ) : (
+                    <span>{(player.username || 'P').charAt(0).toUpperCase()}</span>
+                  )}
+                </div>
+                
+                <div className="leaderboard-info">
+                  <div className="leaderboard-name">
+                    {player.username || 'Guest'}
+                    {player.id === userId && ' (You)'}
+                  </div>
+                  <div className="leaderboard-status">
+                    {player.id === room?.hostId && (
+                      <span className="badge badge-primary">Host</span>
+                    )}
+                    <span className="text-sm text-gray-500 ml-2">
+                      {player.correctAnswers || 0} correct • {player.score || 0} pts
+                    </span>
+                  </div>
+                </div>
+                
+                <div className="leaderboard-score">
+                  {player.score || 0}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+        
+        <div className="button-group mt-8">
+          <button 
+            className="btn btn-primary btn-lg"
+            onClick={() => window.location.reload()}
+          >
+            Play Again
+          </button>
+          <button 
+            className="btn btn-secondary"
+            onClick={() => navigate('/')}
+          >
+            Back to Home
+          </button>
+        </div>
       </div>
-    </div>
-  );
+    );
+  };
 
   if (error) {
     return (

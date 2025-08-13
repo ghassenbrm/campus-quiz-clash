@@ -214,7 +214,7 @@ function ScrollToTop() {
           <Route path="/admin" element={<Admin />} />
           <Route path="/practice" element={<Practice />} />
           <Route path="/multiplayer" element={<RoomLobby />} />
-          <Route path="/room/:roomCode" element={<GameRoom />} />
+          <Route path="/multiplayer/room/:roomCode" element={<GameRoom />} />
           <Route path="/test-user-setup" element={<TestUserSetup />} />
           <Route path="/test-questions" element={<TestQuestions />} />
         </Routes>

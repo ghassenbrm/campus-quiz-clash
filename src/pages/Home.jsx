@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { auth, db } from "../firebase";
 import { doc, getDoc, collection, getDocs } from "firebase/firestore";
-import { FaPlay } from 'react-icons/fa';
+import { FaPlay, FaUsers } from 'react-icons/fa';
 import "../styles/home.css";
 export default function Home() {
   // ...existing code
@@ -67,13 +67,22 @@ export default function Home() {
         <div className="hero-content">
           <h1>Bienvenue sur Campus Quiz Clash</h1>
           <p className="hero-subtitle">Testez vos connaissances et montez dans le classement !</p>
-          <button 
-            onClick={handleStartQuiz} 
-            className="start-quiz-btn"
-          >
-            <FaPlay className="btn-icon" />
-            <span>Commencer le quiz</span>
-          </button>
+          <div className="button-group">
+            <button 
+              onClick={handleStartQuiz} 
+              className="start-quiz-btn"
+            >
+              <FaPlay className="btn-icon" />
+              <span>Commencer le quiz</span>
+            </button>
+            <button 
+              onClick={() => navigate('/multiplayer/lobby')} 
+              className="multiplayer-btn"
+            >
+              <FaUsers className="btn-icon" />
+              <span>Multijoueur</span>
+            </button>
+          </div>
         </div>
       </section>
     </div>

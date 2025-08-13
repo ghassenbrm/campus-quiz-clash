@@ -41,8 +41,16 @@
 
 
 
-.start-quiz-btn {
-  background-color: #4a6cf7;
+.button-group {
+  display: flex;
+  gap: 20px;
+  justify-content: center;
+  flex-wrap: wrap;
+  margin-top: 10px;
+}
+
+.start-quiz-btn,
+.multiplayer-btn {
   color: white;
   border: none;
   border-radius: 50px;
@@ -54,13 +62,30 @@
   align-items: center;
   gap: 10px;
   transition: all 0.3s ease;
+  min-width: 220px;
+  justify-content: center;
+}
+
+.start-quiz-btn {
+  background-color: #4a6cf7;
   box-shadow: 0 4px 15px rgba(74, 108, 247, 0.3);
+}
+
+.multiplayer-btn {
+  background-color: #8a2be2;
+  box-shadow: 0 4px 15px rgba(138, 43, 226, 0.3);
 }
 
 .start-quiz-btn:hover {
   transform: translateY(-3px);
   box-shadow: 0 6px 20px rgba(74, 108, 247, 0.4);
   background-color: #3a5ce4;
+}
+
+.multiplayer-btn:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 6px 20px rgba(138, 43, 226, 0.4);
+  background-color: #7b1fa2;
 }
 
 .start-quiz-btn:active {
@@ -94,7 +119,8 @@
     margin-bottom: 30px;
   }
   
-  .start-quiz-btn {
+  .start-quiz-btn,
+  .multiplayer-btn {
     width: 100%;
     max-width: 300px;
     margin: 0 auto;
