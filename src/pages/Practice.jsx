@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from "react";
-import { db } from "../firebase";
-import { collection, getDocs } from "firebase/firestore";
 import { FaBook, FaRobot, FaTrophy, FaArrowRight, FaRedo, FaHome, FaCheck, FaTimes } from 'react-icons/fa';
+import { fetchQuestions } from "../utils/questions/triviaService";
 import "./../styles/practice.css";
 
 const Practice = () => {
@@ -18,10 +17,45 @@ const Practice = () => {
     setLoading(true);
     setAiMode(ai);
     try {
-      const snap = await getDocs(collection(db, "questions"));
-      const arr = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-      // For AI mode, we could add filtering or different logic here
-      const shuffled = arr.sort(() => 0.5 - Math.random()).slice(0, 10);
+      // Fetch 30 random questions from all categories
+      const allQuestions = [];
+      
+      // Get questions from all available categories
+      const categories = [
+        'general', 'science', 'history', 'geography', 'sports',
+        'movies', 'music', 'television', 'video-games', 'animals',
+        'literature', 'entertainment'
+      ];
+      
+      // Fetch questions from each category and combine them
+      for (const category of categories) {
+        try {
+          const categoryQuestions = await fetchQuestions(category, 30);
+          // Ensure each question has the required fields
+          const formattedQuestions = categoryQuestions.map(q => ({
+            id: q.id || Math.random().toString(36).substr(2, 9),
+            text: q.question || q.text || 'No question text',
+            choices: q.choices || q.options || [],
+            answer: q.answer,
+            explanation: q.explanation || null,
+            category: q.category || category
+          }));
+          allQuestions.push(...formattedQuestions);
+        } catch (err) {
+          console.error(`Error loading questions for category ${category}:`, err);
+        }
+      }
+      
+      // Shuffle all questions and take the first 30
+      const shuffled = allQuestions
+        .filter(q => q.choices && q.choices.length > 0) // Only keep questions with choices
+        .sort(() => 0.5 - Math.random())
+        .slice(0, 30);
+      
+      if (shuffled.length === 0) {
+        throw new Error("No valid questions were loaded. Please try again.");
+      }
+      
       setQuestions(shuffled);
       setCurrent(0);
       setSelected(null);
@@ -30,6 +64,8 @@ const Practice = () => {
       setShowExplanation(null);
     } catch (error) {
       console.error("Error loading questions:", error);
+      alert(error.message || "An error occurred while loading questions. Please try again.");
+      resetQuiz();
     } finally {
       setLoading(false);
     }
@@ -38,28 +74,87 @@ const Practice = () => {
   const handleSelect = (choiceIndex) => {
     if (selected !== null) return; // Prevent multiple selections
     
-    setSelected(choiceIndex);
-    const isCorrect = questions[current].answer === choiceIndex;
-    
-    if (isCorrect) {
-      setScore(score + 1);
+    try {
+      setSelected(choiceIndex);
+      const currentQuestion = questions[current];
+      
+      // Validate question data
+      if (!currentQuestion || !Array.isArray(currentQuestion.choices) || 
+          currentQuestion.choices.length === 0 || 
+          choiceIndex === undefined || 
+          choiceIndex < 0 || 
+          choiceIndex >= currentQuestion.choices.length) {
+        console.error('Invalid question or choice data:', { currentQuestion, choiceIndex });
+        // Skip to next question if current one is invalid
+        moveToNextQuestion();
+        return;
+      }
+      
+      // Get the selected choice
+      const selectedChoice = String(currentQuestion.choices[choiceIndex] || '').trim().toLowerCase();
+      
+      // Determine correct answer - handle both numeric index and direct answer text
+      let correctAnswerText = '';
+      if (typeof currentQuestion.answer === 'number' && 
+          currentQuestion.answer >= 0 && 
+          currentQuestion.answer < currentQuestion.choices.length) {
+        correctAnswerText = String(currentQuestion.choices[currentQuestion.answer] || '').trim().toLowerCase();
+      } else if (currentQuestion.answer !== undefined) {
+        correctAnswerText = String(currentQuestion.answer).trim().toLowerCase();
+      } else {
+        // If answer is undefined, treat it as a wrong answer
+        console.warn('Question has no defined answer:', currentQuestion);
+        setScore(score); // Keep score the same
+        moveToNextQuestion();
+        return;
+      }
+      
+      const isCorrect = selectedChoice === correctAnswerText;
+      
+      console.log('Selected:', selectedChoice);
+      console.log('Correct answer:', correctAnswerText);
+      console.log('Is correct?', isCorrect);
+      
+      if (isCorrect) {
+        setScore(score + 1);
+      }
+      
+      // Show explanation if available
+      if (currentQuestion.explanation) {
+        setShowExplanation(currentQuestion.explanation);
+      }
+      
+      // Move to next question after a delay
+      const nextQuestionTimer = setTimeout(moveToNextQuestion, 1500);
+      
+      // Clean up timer if component unmounts
+      return () => clearTimeout(nextQuestionTimer);
+      
+    } catch (error) {
+      console.error('Error handling answer selection:', error);
+      // Move to next question on error to prevent getting stuck
+      moveToNextQuestion();
     }
     
-    // Show explanation if available
-    if (questions[current].explanation) {
-      setShowExplanation(questions[current].explanation);
-    }
-    
-    // Move to next question after a delay
-    setTimeout(() => {
+    function moveToNextQuestion() {
       if (current < questions.length - 1) {
-        setCurrent(current + 1);
+        setCurrent(prevCurrent => {
+          const nextCurrent = prevCurrent + 1;
+          // Skip any questions that don't have valid choices
+          while (nextCurrent < questions.length - 1 && 
+                (!questions[nextCurrent]?.choices || 
+                 !Array.isArray(questions[nextCurrent].choices) || 
+                 questions[nextCurrent].choices.length === 0)) {
+            nextCurrent++;
+          }
+          return nextCurrent;
+        });
         setSelected(null);
         setShowExplanation(null);
       } else {
         setFinished(true);
       }
-    }, 1500);
+    }
   };
 
   const resetQuiz = () => {

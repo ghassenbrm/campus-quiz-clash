@@ -1,0 +1,179 @@
+/* PDF Uploader Styles */
+.drop-zone {
+  border: 2px dashed #ced4da;
+  border-radius: 8px;
+  padding: 2rem;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  background-color: #f8f9fa;
+  min-height: 200px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+}
+
+.drop-zone:hover {
+  border-color: #80bdff;
+  background-color: #f1f8ff;
+}
+
+.drop-zone.dragging {
+  border-color: #0d6efd;
+  background-color: #e7f1ff;
+  box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
+}
+
+.drop-zone.has-file {
+  border-color: #198754;
+  background-color: #e8f5e9;
+}
+
+.drop-zone .spinner {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .drop-zone {
+    padding: 1.5rem;
+    min-height: 180px;
+  }
+  
+  .drop-zone p {
+    font-size: 0.9rem;
+  }
+}
+
+/* Button styles */
+.btn-upload {
+  position: relative;
+  overflow: hidden;
+  transition: all 0.3s;
+}
+
+.btn-upload input[type=file] {
+  position: absolute;
+  top: 0;
+  right: 0;
+  min-width: 100%;
+  min-height: 100%;
+  font-size: 100px;
+  text-align: right;
+  filter: alpha(opacity=0);
+  opacity: 0;
+  outline: none;
+  background: white;
+  cursor: inherit;
+  display: block;
+}
+
+/* Template download link */
+.template-link {
+  cursor: pointer;
+  color: #0d6efd;
+  text-decoration: underline;
+}
+
+.template-link:hover {
+  color: #0a58ca;
+}
+
+/* Status indicators */
+.upload-status {
+  margin-top: 1rem;
+  padding: 0.5rem;
+  border-radius: 4px;
+}
+
+.upload-status.success {
+  background-color: #d4edda;
+  color: #155724;
+}
+
+.upload-status.error {
+  background-color: #f8d7da;
+  color: #721c24;
+}
+
+.upload-status.info {
+  background-color: #cce5ff;
+  color: #004085;
+}
+
+/* Progress bar */
+.progress {
+  height: 10px;
+  margin-top: 1rem;
+  border-radius: 5px;
+  background-color: #e9ecef;
+  overflow: hidden;
+}
+
+.progress-bar {
+  height: 100%;
+  background-color: #0d6efd;
+  transition: width 0.3s ease;
+}
+
+/* File info */
+.file-info {
+  display: flex;
+  align-items: center;
+  margin-top: 1rem;
+  padding: 0.5rem;
+  background-color: #f8f9fa;
+  border-radius: 4px;
+}
+
+.file-info .file-icon {
+  margin-right: 0.5rem;
+  color: #6c757d;
+}
+
+.file-info .file-name {
+  flex-grow: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.file-info .file-size {
+  color: #6c757d;
+  font-size: 0.875rem;
+  margin-left: 0.5rem;
+}
+
+/* Instructions */
+.instructions {
+  margin-top: 1.5rem;
+  padding: 1rem;
+  background-color: #f8f9fa;
+  border-left: 4px solid #0d6efd;
+  border-radius: 0 4px 4px 0;
+}
+
+.instructions h5 {
+  margin-top: 0;
+  margin-bottom: 0.5rem;
+  color: #0d6efd;
+}
+
+.instructions ol {
+  padding-left: 1.2rem;
+  margin-bottom: 0;
+}
+
+.instructions li {
+  margin-bottom: 0.25rem;
+}
+
+.instructions li:last-child {
+  margin-bottom: 0;
+}

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Routes, Route, useLocation, Link } from 'react-router-dom';
 import { Helmet } from "react-helmet-async";
-import { FaBars, FaTimes, FaHome, FaTrophy, FaUser, FaSignInAlt, FaBook, FaBookOpen, FaBell, FaUserShield } from 'react-icons/fa';
+import { FaBars, FaTimes, FaHome, FaTrophy, FaUser, FaSignInAlt, FaBook, FaBookOpen, FaBell, FaUserShield, FaUsers } from 'react-icons/fa';
 import { auth, db } from './firebase';
 import { doc, getDoc, collection, getDocs } from 'firebase/firestore';
 import Home from './pages/Home';
@@ -12,6 +12,10 @@ import Leaderboard from './pages/Leaderboard';
 import Profile from './pages/Profile';
 import Admin from './pages/Admin';
 import Practice from './pages/Practice';
+import RoomLobby from './components/multiplayer/RoomLobby';
+import GameRoom from './components/multiplayer/GameRoom';
+import TestUserSetup from './pages/TestUserSetup';
+import TestQuestions from './pages/TestQuestions';
 import { createFocusTrap, announce } from './utils/a11y';
 import './styles/global.css';
 
@@ -100,7 +104,10 @@ function ResponsiveNav() {
           <NavLink to="/" icon={<FaHome />} text="Home" />
           <NavLink to="/quiz" icon={<FaBook />} text="Quiz" />
           <NavLink to="/practice" icon={<FaBookOpen />} text="Practice" />
-          <NavLink to="/leaderboard" icon={<FaTrophy />} text="Leaderboard" />
+          <NavLink to="/multiplayer" icon={<FaUsers />} text="Multiplayer" />
+          {isAdmin && (
+            <NavLink to="/admin" icon={<FaUserShield />} text="Admin" />
+          )}
           <NavLink to="/profile" icon={<FaUser />} text="Profile" />
           <div className="nav-actions">
             <NavLink 
@@ -206,6 +213,10 @@ function ScrollToTop() {
           <Route path="/profile" element={<Profile />} />
           <Route path="/admin" element={<Admin />} />
           <Route path="/practice" element={<Practice />} />
+          <Route path="/multiplayer" element={<RoomLobby />} />
+          <Route path="/room/:roomCode" element={<GameRoom />} />
+          <Route path="/test-user-setup" element={<TestUserSetup />} />
+          <Route path="/test-questions" element={<TestQuestions />} />
         </Routes>
       </main>
     </>

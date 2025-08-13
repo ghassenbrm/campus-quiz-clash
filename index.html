@@ -8,6 +8,21 @@
   </head>
   <body>
     <div id="root"></div>
+    <!-- Load PDF.js from CDN -->
+    <script src="https://unpkg.com/pdfjs-dist@3.4.120/build/pdf.min.js"></script>
+    <script>
+      // Set PDF.js worker path to CDN
+      window.pdfjsLib = pdfjsLib;
+      
+      // Set a flag to indicate PDF.js is ready
+      window.pdfjsReady = true;
+      
+      // Set worker path
+      pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://unpkg.com/pdfjs-dist@3.4.120/build/pdf.worker.min.js';
+      
+      // Log for debugging
+      console.log('PDF.js loaded successfully');
+    </script>
     <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>

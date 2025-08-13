@@ -1,0 +1,497 @@
+import React, { useState, useEffect, useRef } from 'react';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
+import { doc, onSnapshot, updateDoc, arrayUnion, arrayRemove, serverTimestamp } from 'firebase/firestore';
+import { db, auth } from '../../firebase';
+import { FaUsers, FaTrophy, FaClock, FaCheckCircle, FaPlay, FaSpinner } from 'react-icons/fa';
+
+export default function GameRoom() {
+  const { roomCode } = useParams();
+  const location = useLocation();
+  const navigate = useNavigate();
+  const { username, isHost, userId } = location.state || {};
+  
+  const [room, setRoom] = useState(null);
+  const [selectedAnswer, setSelectedAnswer] = useState(null);
+  const [timeLeft, setTimeLeft] = useState(10);
+  const [gameState, setGameState] = useState('waiting'); // waiting, question, results, finished
+  const [currentQuestion, setCurrentQuestion] = useState(null);
+  const [players, setPlayers] = useState([]);
+  const [error, setError] = useState('');
+  
+  const timerRef = useRef(null);
+  const questionTimerRef = useRef(null);
+  
+  // Listen for room updates
+  useEffect(() => {
+    if (!roomCode || !userId) {
+      navigate('/multiplayer');
+      return;
+    }
+
+    const roomRef = doc(db, 'rooms', roomCode);
+    let isMounted = true;
+
+    const unsubscribe = onSnapshot(roomRef, async (doc) => {
+      if (!doc.exists()) {
+        setError('Room not found');
+        return;
+      }
+      
+      const roomData = doc.data();
+      setRoom(roomData);
+      
+      if (roomData.currentQuestion) {
+        setCurrentQuestion(roomData.currentQuestion);
+      }
+      
+      if (roomData.players) {
+        setPlayers(Object.entries(roomData.players).map(([id, player]) => ({
+          id,
+          ...player
+        })));
+      }
+      
+      if (roomData.status === 'in-progress' && !roomData.currentQuestion) {
+        // Game is in progress but no current question, move to first question
+        if (isHost) {
+          await updateDoc(roomRef, {
+            currentQuestion: roomData.questions[0],
+            currentQuestionIndex: 0,
+            updatedAt: serverTimestamp()
+          });
+        }
+      }
+    });
+
+    return () => {
+      isMounted = false;
+      unsubscribe();
+    };
+  }, [roomCode, navigate, userId, isHost]);
+  
+  // Handle player leaving the room
+  useEffect(() => {
+    const handleBeforeUnload = async () => {
+      if (!roomCode || !userId) return;
+      
+      try {
+        const roomRef = doc(db, 'rooms', roomCode);
+        await updateDoc(roomRef, {
+          [`players.${userId}`]: arrayRemove(userId),
+          updatedAt: serverTimestamp()
+        });
+      } catch (err) {
+        console.error('Error removing player:', err);
+      }
+    };
+    
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+      handleBeforeUnload();
+    };
+  }, [roomCode, userId]);
+  
+  const startQuestionTimer = (seconds) => {
+    clearInterval(timerRef.current);
+    setTimeLeft(seconds);
+    
+    timerRef.current = setInterval(() => {
+      setTimeLeft(prev => {
+        if (prev <= 1) {
+          clearInterval(timerRef.current);
+          handleTimeUp();
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+  };
+  
+  const handleTimeUp = async () => {
+    if (gameState !== 'question') return;
+    
+    setGameState('results');
+    clearTimeout(questionTimerRef.current);
+    
+    if (isHost) {
+      questionTimerRef.current = setTimeout(() => {
+        moveToNextQuestion();
+      }, 3000);
+    }
+  };
+  
+  const checkAllPlayersAnswered = (playersData) => {
+    if (!playersData || typeof playersData !== 'object') return false;
+    
+    const playerIds = Object.keys(playersData);
+    if (playerIds.length === 0) return false;
+    
+    return playerIds.every(playerId => {
+      const player = playersData[playerId];
+      return player.answer !== null && player.answer !== undefined;
+    });
+  };
+
+  const handleAnswerSelect = async (answerIndex) => {
+    if (selectedAnswer !== null || gameState !== 'question' || !room || !userId) return;
+    
+    setSelectedAnswer(answerIndex);
+    
+    try {
+      const isCorrect = currentQuestion.correctAnswer === answerIndex;
+      const timeBonus = isCorrect ? Math.ceil(timeLeft * 0.5) : 0;
+      const pointsEarned = isCorrect ? 10 + timeBonus : 0;
+      
+      const roomRef = doc(db, 'rooms', roomCode);
+      
+      const updateData = {
+        [`players.${userId}.answer`]: answerIndex,
+        [`players.${userId}.isCorrect`]: isCorrect,
+        [`players.${userId}.answeredAt`]: serverTimestamp(),
+        'updatedAt': serverTimestamp()
+      };
+      
+      if (pointsEarned > 0) {
+        updateData[`players.${userId}.score`] = (room.players[userId]?.score || 0) + pointsEarned;
+      }
+      
+      await updateDoc(roomRef, updateData);
+      
+      setGameState('results');
+      clearInterval(timerRef.current);
+      
+    } catch (err) {
+      console.error('Error submitting answer:', err);
+      setError('Failed to submit answer: ' + (err.message || 'Unknown error'));
+      setSelectedAnswer(null);
+    }
+  };
+  
+  const moveToNextQuestion = async () => {
+    if (!isHost || !room?.questions) return;
+    
+    try {
+      const roomRef = doc(db, 'rooms', roomCode);
+      const nextQuestionIndex = (room.currentQuestionIndex || 0) + 1;
+      
+      if (nextQuestionIndex < room.questions.length) {
+        await updateDoc(roomRef, {
+          currentQuestion: room.questions[nextQuestionIndex],
+          currentQuestionIndex: nextQuestionIndex,
+          updatedAt: serverTimestamp(),
+          ...Object.keys(room.players).reduce((acc, playerId) => ({
+            ...acc,
+            [`players.${playerId}.answer`]: null,
+            [`players.${playerId}.isCorrect`]: null,
+            [`players.${playerId}.answeredAt`]: null
+          }), {})
+        });
+        
+        setSelectedAnswer(null);
+        setGameState('question');
+        startQuestionTimer(10);
+      } else {
+        await updateDoc(roomRef, {
+          status: 'finished',
+          updatedAt: serverTimestamp()
+        });
+      }
+    } catch (err) {
+      console.error('Error moving to next question:', err);
+      setError('Failed to move to next question');
+    }
+  };
+
+  const startGame = async () => {
+    if (!isHost || !roomCode) return;
+    
+    try {
+      setGameState('loading');
+      
+      const questions = [
+        {
+          id: '1',
+          question: 'What is the capital of France?',
+          options: ['London', 'Berlin', 'Paris', 'Madrid'],
+          correctAnswer: 2,
+          category: 'Geography',
+          difficulty: 'easy'
+        },
+        {
+          id: '2',
+          question: 'Which planet is known as the Red Planet?',
+          options: ['Venus', 'Mars', 'Jupiter', 'Saturn'],
+          correctAnswer: 1,
+          category: 'Science',
+          difficulty: 'easy'
+        },
+        {
+          id: '3',
+          question: 'What is 2 + 2?',
+          options: ['3', '4', '5', '6'],
+          correctAnswer: 1,
+          category: 'Math',
+          difficulty: 'easy'
+        }
+      ];
+      
+      const roomRef = doc(db, 'rooms', roomCode);
+      await updateDoc(roomRef, {
+        status: 'in-progress',
+        questions: questions,
+        currentQuestion: questions[0],
+        currentQuestionIndex: 0,
+        updatedAt: serverTimestamp()
+      });
+      
+      setGameState('question');
+      startQuestionTimer(10);
+      
+    } catch (err) {
+      console.error('Error starting game:', err);
+      setError(err.message || 'Failed to start game');
+      setGameState('waiting');
+    }
+  };
+
+  const renderWaitingRoom = () => (
+    <div className="text-center">
+      <h3>Room Code: {roomCode}</h3>
+      <div className="mb-4">
+        <FaUsers size={48} className="text-primary mb-3" />
+        <h4>Waiting for players...</h4>
+      </div>
+      
+      <div className="player-list mb-4">
+        <h5>Players ({Object.keys(room?.players || {}).length})</h5>
+        <div className="list-group">
+          {Object.entries(room?.players || {}).map(([playerId, player]) => (
+            <div key={playerId} className="list-group-item d-flex justify-content-between align-items-center">
+              {player.username || 'Unknown Player'}
+              {playerId === room?.hostId && <span className="badge bg-primary">Host</span>}
+              {playerId === userId && <span className="ms-2">(You)</span>}
+            </div>
+          ))}
+        </div>
+      </div>
+      
+      {isHost && (
+        <button 
+          className="btn btn-success btn-lg"
+          onClick={startGame}
+          disabled={Object.keys(room?.players || {}).length < 2}
+        >
+          Start Game ({Object.keys(room?.players || {}).length}/10)
+        </button>
+      )}
+    </div>
+  );
+
+  const renderQuestion = () => {
+    if (!currentQuestion) return null;
+    
+    const questionChoices = currentQuestion.options || [];
+    
+    return (
+      <div>
+        <div className="d-flex justify-content-between align-items-center mb-4">
+          <div className="badge bg-primary p-2">
+            <FaClock className="me-1" /> {timeLeft}s
+          </div>
+          <div className="badge bg-secondary p-2">
+            Question {(room?.currentQuestionIndex || 0) + 1}/{room?.questions?.length || 1}
+          </div>
+        </div>
+        
+        <div className="card mb-4">
+          <div className="card-body">
+            <h4 className="card-title">{currentQuestion.question}</h4>
+            
+            <div className="row mt-4">
+              {questionChoices.map((choice, index) => {
+                const isSelected = selectedAnswer === index;
+                const isCorrect = currentQuestion.correctAnswer === index;
+                const showResults = gameState === 'results';
+                
+                let className = 'btn btn-outline-primary btn-lg mb-3 text-start';
+                if (isSelected) {
+                  className = showResults && isCorrect 
+                    ? 'btn btn-success btn-lg mb-3 text-start'
+                    : showResults 
+                      ? 'btn btn-danger btn-lg mb-3 text-start'
+                      : 'btn btn-primary btn-lg mb-3 text-start';
+                } else if (showResults && isCorrect) {
+                  className = 'btn btn-success btn-lg mb-3 text-start';
+                }
+                
+                return (
+                  <div key={index} className="col-12 col-md-6 mb-2">
+                    <button
+                      className={className}
+                      onClick={() => handleAnswerSelect(index)}
+                      disabled={selectedAnswer !== null || gameState === 'results'}
+                    >
+                      <div className="d-flex align-items-center">
+                        {String.fromCharCode(65 + index)}) {choice}
+                        {showResults && isCorrect && (
+                          <FaCheckCircle className="ms-2" />
+                        )}
+                      </div>
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+        
+        {gameState === 'results' && (
+          <div className="alert alert-info">
+            {selectedAnswer === currentQuestion.correctAnswer 
+              ? 'Correct! ' + (currentQuestion.explanation || '')
+              : `Incorrect. The correct answer is ${String.fromCharCode(65 + currentQuestion.correctAnswer)}) ${questionChoices[currentQuestion.correctAnswer]}. ` + (currentQuestion.explanation || '')}
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  const renderResults = () => {
+    if (!currentQuestion || !room?.players) return null;
+    
+    const playerList = Object.entries(room.players).map(([id, player]) => ({
+      id,
+      ...player,
+      isCurrentUser: id === userId
+    }));
+    
+    const allPlayersAnswered = checkAllPlayersAnswered(room.players);
+    
+    return (
+      <div className="results-container">
+        <h3 className="text-center mb-4">Results</h3>
+        <div className="players-results">
+          {playerList.map(player => (
+            <div key={player.id} className={`card mb-3 ${player.isCurrentUser ? 'border-primary' : ''}`}>
+              <div className="card-body">
+                <div className="d-flex justify-content-between align-items-center">
+                  <h5 className="mb-0">
+                    {player.username || 'Player'} {player.isCurrentUser && '(You)'}
+                  </h5>
+                  <span className={`badge ${player.isCorrect ? 'bg-success' : 'bg-danger'}`}>
+                    {player.answer !== undefined && player.answer !== null 
+                      ? (player.isCorrect ? '✓ Correct' : '✗ Incorrect')
+                      : 'No answer'}
+                  </span>
+                </div>
+                <div className="mt-2">
+                  <strong>Score:</strong> {player.score || 0} points
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+        
+        {allPlayersAnswered && isHost && (
+          <div className="text-center mt-4">
+            <button 
+              onClick={moveToNextQuestion}
+              className="btn btn-primary btn-lg"
+            >
+              Next Question
+            </button>
+          </div>
+        )}
+        
+        {allPlayersAnswered && !isHost && (
+          <div className="alert alert-info text-center">
+            Waiting for host to start the next question...
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  const renderLeaderboard = () => (
+    <div>
+      <h3 className="text-center mb-4">
+        <FaTrophy className="text-warning" /> Game Over
+      </h3>
+      
+      <div className="leaderboard">
+        {players
+          .sort((a, b) => (b.score || 0) - (a.score || 0))
+          .map((player, index) => (
+            <div key={player.id} className="card mb-3">
+              <div className="card-body">
+                <div className="d-flex justify-content-between align-items-center">
+                  <div>
+                    <h5 className="mb-0">
+                      #{index + 1} {player.username}
+                      {player.id === userId && ' (You)'}
+                    </h5>
+                    {player.id === room?.hostId && (
+                      <span className="badge bg-primary">Host</span>
+                    )}
+                  </div>
+                  <div className="h4 mb-0">{player.score || 0} pts</div>
+                </div>
+              </div>
+            </div>
+          ))}
+      </div>
+      
+      <div className="text-center mt-4">
+        <button 
+          className="btn btn-primary me-2"
+          onClick={() => window.location.reload()}
+        >
+          Play Again
+        </button>
+        <button 
+          className="btn btn-outline-secondary"
+          onClick={() => navigate('/')}
+        >
+          Back to Home
+        </button>
+      </div>
+    </div>
+  );
+
+  if (error) {
+    return (
+      <div className="container mt-5">
+        <div className="alert alert-danger">{error}</div>
+        <button className="btn btn-primary" onClick={() => navigate('/')}>
+          Back to Home
+        </button>
+      </div>
+    );
+  }
+
+  if (gameState === 'loading') {
+    return (
+      <div className="text-center mt-5">
+        <div className="spinner-border text-primary" role="status">
+          <span className="visually-hidden">Loading...</span>
+        </div>
+        <p className="mt-2">Loading game...</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="container mt-4">
+      <div className="row justify-content-center">
+        <div className="col-md-8">
+          {gameState === 'waiting' && renderWaitingRoom()}
+          {gameState === 'question' && renderQuestion()}
+          {gameState === 'results' && renderResults()}
+          {gameState === 'finished' && renderLeaderboard()}
+        </div>
+      </div>
+    </div>
+  );
+}

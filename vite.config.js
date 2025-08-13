@@ -2,12 +2,30 @@ import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import { visualizer } from 'rollup-plugin-visualizer';
 import { VitePWA } from 'vite-plugin-pwa';
+import { fileURLToPath } from 'url';
+import { dirname, resolve } from 'path';
+
+// Vite plugin to handle .txt imports as raw text
+const rawTextPlugin = () => ({
+  name: 'raw-text',
+  transform(_, id) {
+    if (id.endsWith('?raw')) {
+      const fileId = id.slice(0, -4); // Remove ?raw
+      if (fileId.endsWith('.txt')) {
+        return `export default ${JSON.stringify(
+          require('fs').readFileSync(fileId, 'utf-8')
+        )}`;
+      }
+    }
+  }
+});
 
 // https://vite.dev/config/
 export default defineConfig(({ mode }) => ({
   base: '/',
   plugins: [
     react(),
+    rawTextPlugin(),
     mode === 'analyze' && visualizer({
       open: true,
       filename: 'dist/stats.html',
@@ -44,6 +62,18 @@ export default defineConfig(({ mode }) => ({
     assetsDir: 'assets',
     emptyOutDir: true,
     chunkSizeWarningLimit: 1000,
+    rollupOptions: {
+      output: {
+        manualChunks: (id) => {
+          if (id.includes('node_modules/pdfjs-dist')) {
+            return 'pdfjs';
+          }
+        },
+      },
+    },
+    commonjsOptions: {
+      include: [/node_modules/],
+    },
     terserOptions: {
       compress: {
         drop_console: mode !== 'development',

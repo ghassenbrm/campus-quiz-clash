@@ -6,6 +6,7 @@ import { announce } from './utils/a11y';
 import './index.css';
 import './styles/a11y.css';
 import './styles/global.css';
+import './styles/multiplayer.css';
 import App from './App.jsx';
 
 // Add skip to main content link

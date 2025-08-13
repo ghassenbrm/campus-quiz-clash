@@ -1,0 +1,125 @@
+/* Multiplayer Game Styles */
+.room-code {
+  font-family: 'Courier New', monospace;
+  font-size: 1.5rem;
+  letter-spacing: 0.2em;
+  background-color: #f8f9fa;
+  padding: 0.5rem 1rem;
+  border-radius: 0.5rem;
+  display: inline-block;
+  margin: 0.5rem 0;
+  font-weight: bold;
+}
+
+.player-list {
+  max-height: 300px;
+  overflow-y: auto;
+  margin: 1rem 0;
+}
+
+.player-card {
+  transition: all 0.3s ease;
+  border-left: 4px solid transparent;
+}
+
+.player-card.is-host {
+  border-left-color: #0d6efd;
+  background-color: #f8f9ff;
+}
+
+.player-card.ready {
+  border-left-color: #198754;
+}
+
+.answer-option {
+  transition: all 0.2s ease;
+  text-align: left;
+  white-space: normal;
+  word-wrap: break-word;
+}
+
+.answer-option:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+.answer-option.correct {
+  background-color: #198754;
+  border-color: #198754;
+  color: white;
+}
+
+.answer-option.incorrect {
+  background-color: #dc3545;
+  border-color: #dc3545;
+  color: white;
+}
+
+.answer-option.selected {
+  background-color: #0d6efd;
+  border-color: #0d6efd;
+  color: white;
+}
+
+.timer {
+  font-size: 2rem;
+  font-weight: bold;
+  margin: 1rem 0;
+}
+
+.leaderboard {
+  background-color: #f8f9fa;
+  border-radius: 0.5rem;
+  overflow: hidden;
+}
+
+.leaderboard .position-1 {
+  background-color: #ffd700;
+  font-weight: bold;
+}
+
+.leaderboard .position-2 {
+  background-color: #c0c0c0;
+}
+
+.leaderboard .position-3 {
+  background-color: #cd7f32;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .room-code {
+    font-size: 1.2rem;
+    padding: 0.3rem 0.8rem;
+  }
+  
+  .answer-option {
+    font-size: 0.9rem;
+    padding: 0.5rem;
+  }
+  
+  .timer {
+    font-size: 1.5rem;
+  }
+}
+
+/* Animation for correct/incorrect answers */
+@keyframes flashCorrect {
+  0% { background-color: #198754; color: white; }
+  50% { background-color: #f8f9fa; color: #198754; }
+  100% { background-color: #198754; color: white; }
+}
+
+@keyframes flashIncorrect {
+  0% { background-color: #dc3545; color: white; }
+  50% { background-color: #f8f9fa; color: #dc3545; }
+  100% { background-color: #dc3545; color: white; }
+}
+
+.answer-option.correct {
+  animation: flashCorrect 1s ease-in-out;
+}
+
+.answer-option.incorrect {
+  animation: flashIncorrect 1s ease-in-out;
+}
