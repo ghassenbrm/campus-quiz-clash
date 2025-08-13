@@ -83,8 +83,7 @@ export default defineConfig(({ mode }) => ({
         manualChunks: {
           react: ['react', 'react-dom', 'react-router-dom'],
           firebase: ['firebase/app', 'firebase/firestore', 'firebase/auth', 'firebase/analytics'],
-          icons: ['react-icons/fa'],
-          pdfjs: ['pdfjs-dist/legacy/build/pdf.worker.entry'],
+          icons: ['react-icons/fa']
         },
       },
     },

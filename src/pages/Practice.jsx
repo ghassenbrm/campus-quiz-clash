@@ -139,15 +139,15 @@ const Practice = () => {
     function moveToNextQuestion() {
       if (current < questions.length - 1) {
         setCurrent(prevCurrent => {
-          const nextCurrent = prevCurrent + 1;
+          let nextIndex = prevCurrent + 1;
           // Skip any questions that don't have valid choices
-          while (nextCurrent < questions.length - 1 && 
-                (!questions[nextCurrent]?.choices || 
-                 !Array.isArray(questions[nextCurrent].choices) || 
-                 questions[nextCurrent].choices.length === 0)) {
-            nextCurrent++;
+          while (nextIndex < questions.length - 1 && 
+                (!questions[nextIndex]?.choices || 
+                 !Array.isArray(questions[nextIndex].choices) || 
+                 questions[nextIndex].choices.length === 0)) {
+            nextIndex++;
           }
-          return nextCurrent;
+          return nextIndex;
         });
         setSelected(null);
         setShowExplanation(null);
