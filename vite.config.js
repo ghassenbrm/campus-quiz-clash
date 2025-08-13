@@ -34,6 +34,23 @@ export default defineConfig(({ mode }) => ({
     }),
     VitePWA({
       registerType: 'autoUpdate',
+      workbox: {
+        maximumFileSizeToCacheInBytes: 10 * 1024 * 1024, // 10MB
+        globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
+        runtimeCaching: [
+          {
+            urlPattern: /^https:\/\/api\.dicebear\.com\/7\.x\//,
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'dicebear-avatars',
+              expiration: {
+                maxEntries: 50,
+                maxAgeSeconds: 60 * 60 * 24 * 30, // 30 days
+              },
+            },
+          },
+        ],
+      },
       includeAssets: ['favicon.ico', 'robots.txt', 'sitemap.xml'],
       manifest: {
         name: 'Campus Quiz Clash',
@@ -61,13 +78,13 @@ export default defineConfig(({ mode }) => ({
     outDir: 'dist',
     assetsDir: 'assets',
     emptyOutDir: true,
-    chunkSizeWarningLimit: 1000,
     rollupOptions: {
       output: {
-        manualChunks: (id) => {
-          if (id.includes('node_modules/pdfjs-dist')) {
-            return 'pdfjs';
-          }
+        manualChunks: {
+          react: ['react', 'react-dom', 'react-router-dom'],
+          firebase: ['firebase/app', 'firebase/firestore', 'firebase/auth', 'firebase/analytics'],
+          icons: ['react-icons/fa'],
+          pdfjs: ['pdfjs-dist/legacy/build/pdf.worker.entry'],
         },
       },
     },
@@ -80,14 +97,7 @@ export default defineConfig(({ mode }) => ({
         drop_debugger: mode !== 'development',
       },
     },
-    rollupOptions: {
-      output: {
-        manualChunks: {
-          react: ['react', 'react-dom', 'react-router-dom'],
-          firebase: ['firebase/app', 'firebase/auth', 'firebase/firestore', 'firebase/analytics'],
-        },
-      },
-    },
+    chunkSizeWarningLimit: 2000,
   },
   server: {
     port: 3000,
